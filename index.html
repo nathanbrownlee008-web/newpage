@@ -2,136 +2,199 @@
 <html>
 <head>
 <meta charset="UTF-8">
-<title>Top Daily Tips</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Top Daily Tips</title>
+
 <style>
 body {
-  margin: 0;
+  margin:0;
   font-family: Arial, sans-serif;
-  background: #0f172a;
-  color: white;
+  background:#0f172a;
+  color:white;
 }
+
 header {
-  padding: 20px;
-  font-size: 24px;
-  font-weight: bold;
-  border-bottom: 1px solid #1e293b;
+  padding:20px;
+  font-size:24px;
+  font-weight:bold;
+  border-bottom:2px solid #1e293b;
 }
+
 nav {
-  padding: 15px 20px;
+  padding:15px 20px;
+  border-bottom:1px solid #1e293b;
 }
+
 button {
-  padding: 8px 14px;
-  margin-right: 10px;
-  border: none;
-  border-radius: 8px;
-  cursor: pointer;
+  padding:8px 14px;
+  margin-right:10px;
+  border:none;
+  border-radius:8px;
+  cursor:pointer;
 }
-.primary { background: #10b981; color: black; }
-.secondary { background: #1e293b; color: white; }
+
+.primary { background:#10b981; color:black; }
+.secondary { background:#1e293b; color:white; }
+
+.container {
+  padding:20px;
+}
+
 .card {
-  background: #1e293b;
-  padding: 16px;
-  margin: 20px;
-  border-radius: 12px;
+  background:#1e293b;
+  padding:16px;
+  margin-bottom:20px;
+  border-radius:12px;
+  border:1px solid #334155;
 }
-.stat {
-  display: inline-block;
-  margin: 10px 20px 10px 0;
+
+.grid {
+  display:grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px,1fr));
+  gap:20px;
 }
+
 input, select {
-  display: block;
-  margin-bottom: 8px;
-  padding: 6px;
-  width: 100%;
-  border-radius: 6px;
-  border: none;
+  width:100%;
+  padding:6px;
+  margin-bottom:8px;
+  border-radius:6px;
+  border:none;
+}
+
+.stat-box {
+  display:inline-block;
+  margin-right:20px;
+  margin-bottom:10px;
+}
+
+hr {
+  border:1px solid #334155;
 }
 </style>
 </head>
+
 <body>
 
 <header>Top Daily Tips</header>
 
 <nav>
-  <button class="secondary" onclick="showDashboard()">Dashboard</button>
-  <button class="secondary" onclick="showValue()">Value Bets</button>
-  <button class="secondary" onclick="showHistory()">History</button>
-  <button class="primary" onclick="addBet()">Add Bet (Admin)</button>
+  <button class="secondary" onclick="setTab('dashboard')">Dashboard</button>
+  <button class="secondary" onclick="setTab('value')">Value Bets</button>
+  <button class="secondary" onclick="setTab('history')">History</button>
+  <button class="primary" onclick="openAdmin()">Admin</button>
 </nav>
 
-<div id="content"></div>
+<div class="container">
+  <div id="content"></div>
+</div>
 
 <script>
+
 let bets = [];
 let tab = "dashboard";
 
-function edge(prob, odds) {
-  if (!prob || !odds) return 0;
+function edge(prob, odds){
+  if(!prob || !odds) return 0;
   return (prob/100 * odds - 1) * 100;
 }
 
-function profit(odds, stake, result) {
-  if (result === "win") return (odds - 1) * stake;
-  if (result === "loss") return -stake;
+function profit(odds, stake, result){
+  if(result==="win") return (odds-1)*stake;
+  if(result==="loss") return -stake;
   return 0;
 }
 
-function showDashboard() { tab = "dashboard"; render(); }
-function showValue() { tab = "value"; render(); }
-function showHistory() { tab = "history"; render(); }
+function setTab(t){
+  tab = t;
+  render();
+}
 
-function addBet() {
+function openAdmin(){
+  tab = "admin";
+  render();
+}
+
+function addBet(){
   bets.push({
     id: Date.now(),
-    match: "Team A vs Team B",
-    market: "Over 2.5",
-    odds: 2.0,
-    probability: 50,
-    stake: 100,
-    result: "pending"
+    match:"",
+    market:"",
+    odds:2,
+    probability:50,
+    stake:100,
+    result:"pending"
   });
+  tab = "value";
   render();
 }
 
-function updateBet(id, field, value) {
-  bets = bets.map(b => b.id === id ? {...b, [field]: value} : b);
+function updateBet(id, field, value){
+  bets = bets.map(b => b.id===id ? {...b, [field]:value} : b);
   render();
 }
 
-function render() {
+function uploadCSV(event){
+  const file = event.target.files[0];
+  const reader = new FileReader();
+  reader.onload = function(e){
+    const lines = e.target.result.split("\n");
+    lines.forEach(line=>{
+      const [match, market, odds, prob, stake] = line.split(",");
+      if(match){
+        bets.push({
+          id:Date.now()+Math.random(),
+          match:match,
+          market:market,
+          odds:parseFloat(odds),
+          probability:parseFloat(prob),
+          stake:parseFloat(stake),
+          result:"pending"
+        });
+      }
+    });
+    render();
+  }
+  reader.readAsText(file);
+}
+
+function render(){
+
   const content = document.getElementById("content");
   content.innerHTML = "";
 
-  if (tab === "dashboard") {
-    let totalBets = bets.filter(b => b.result !== "pending").length;
-    let wins = bets.filter(b => b.result === "win").length;
-    let losses = bets.filter(b => b.result === "loss").length;
+  if(tab==="dashboard"){
+    let completed = bets.filter(b=>b.result!=="pending");
+    let wins = bets.filter(b=>b.result==="win").length;
+    let losses = bets.filter(b=>b.result==="loss").length;
     let totalStaked = bets.reduce((a,b)=>a+b.stake,0);
     let totalProfit = bets.reduce((a,b)=>a+profit(b.odds,b.stake,b.result),0);
     let roi = totalStaked ? (totalProfit/totalStaked*100).toFixed(2) : 0;
-    let winRate = totalBets ? (wins/totalBets*100).toFixed(2) : 0;
+    let winRate = completed.length ? (wins/completed.length*100).toFixed(2) : 0;
 
     content.innerHTML = `
       <div class="card">
-        <div class="stat">Total Bets: ${totalBets}</div>
-        <div class="stat">Win Rate: ${winRate}%</div>
-        <div class="stat">Total Profit: £${totalProfit.toFixed(2)}</div>
-        <div class="stat">ROI: ${roi}%</div>
+        <div class="stat-box">Total Bets: ${completed.length}</div>
+        <div class="stat-box">Win Rate: ${winRate}%</div>
+        <div class="stat-box">Total Profit: £${totalProfit.toFixed(2)}</div>
+        <div class="stat-box">ROI: ${roi}%</div>
       </div>
     `;
   }
 
-  if (tab === "value") {
-    bets.filter(b => b.result==="pending").forEach(bet => {
-      const div = document.createElement("div");
-      div.className = "card";
-      div.innerHTML = `
-        <h3>${bet.match}</h3>
-        <p>${bet.market}</p>
-        <input value="${bet.odds}" type="number" onchange="updateBet(${bet.id},'odds',parseFloat(this.value))">
-        <input value="${bet.probability}" type="number" onchange="updateBet(${bet.id},'probability',parseFloat(this.value))">
-        <input value="${bet.stake}" type="number" onchange="updateBet(${bet.id},'stake',parseFloat(this.value))">
+  if(tab==="value"){
+    const grid = document.createElement("div");
+    grid.className="grid";
+
+    bets.filter(b=>b.result==="pending").forEach(bet=>{
+      const div=document.createElement("div");
+      div.className="card";
+      div.innerHTML=`
+        <input placeholder="Match" value="${bet.match}" onchange="updateBet(${bet.id},'match',this.value)">
+        <input placeholder="Market" value="${bet.market}" onchange="updateBet(${bet.id},'market',this.value)">
+        <input type="number" value="${bet.odds}" onchange="updateBet(${bet.id},'odds',parseFloat(this.value))">
+        <input type="number" value="${bet.probability}" onchange="updateBet(${bet.id},'probability',parseFloat(this.value))">
+        <input type="number" value="${bet.stake}" onchange="updateBet(${bet.id},'stake',parseFloat(this.value))">
         <p>Edge: ${edge(bet.probability,bet.odds).toFixed(2)}%</p>
         <p>Potential Profit: £${((bet.odds-1)*bet.stake).toFixed(2)}</p>
         <select onchange="updateBet(${bet.id},'result',this.value)">
@@ -140,26 +203,46 @@ function render() {
           <option value="loss">Loss</option>
         </select>
       `;
-      content.appendChild(div);
+      grid.appendChild(div);
     });
+
+    content.appendChild(grid);
   }
 
-  if (tab === "history") {
-    bets.filter(b => b.result!=="pending").forEach(bet => {
-      const div = document.createElement("div");
-      div.className = "card";
-      div.innerHTML = `
-        <h3>${bet.match}</h3>
+  if(tab==="history"){
+    const grid = document.createElement("div");
+    grid.className="grid";
+
+    bets.filter(b=>b.result!=="pending").forEach(bet=>{
+      const div=document.createElement("div");
+      div.className="card";
+      div.innerHTML=`
+        <strong>${bet.match}</strong>
         <p>${bet.market}</p>
         <p>Result: ${bet.result.toUpperCase()}</p>
         <p>Profit: £${profit(bet.odds,bet.stake,bet.result).toFixed(2)}</p>
       `;
-      content.appendChild(div);
+      grid.appendChild(div);
     });
+
+    content.appendChild(grid);
+  }
+
+  if(tab==="admin"){
+    content.innerHTML=`
+      <div class="card">
+        <button class="primary" onclick="addBet()">Add Bet</button>
+        <hr>
+        <h3>Upload CSV</h3>
+        <p>Format: Match,Market,Odds,Probability,Stake</p>
+        <input type="file" accept=".csv" onchange="uploadCSV(event)">
+      </div>
+    `;
   }
 }
 
 render();
+
 </script>
 
 </body>
