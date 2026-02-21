@@ -2,45 +2,69 @@
 <html>
 <head>
 <meta charset="UTF-8">
-<title>Simple Bet Tracker</title>
+<title>Top Daily Tips</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 <style>
 body {
-  font-family: Arial;
+  margin: 0;
+  font-family: Arial, sans-serif;
   background: #0f172a;
   color: white;
-  padding: 20px;
 }
-.card {
-  background: #1e293b;
-  padding: 15px;
-  margin-bottom: 15px;
-  border-radius: 12px;
+header {
+  padding: 20px;
+  font-size: 24px;
+  font-weight: bold;
+  border-bottom: 1px solid #1e293b;
+}
+nav {
+  padding: 15px 20px;
 }
 button {
-  padding: 8px 12px;
-  margin: 5px 5px 5px 0;
+  padding: 8px 14px;
+  margin-right: 10px;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+}
+.primary { background: #10b981; color: black; }
+.secondary { background: #1e293b; color: white; }
+.card {
+  background: #1e293b;
+  padding: 16px;
+  margin: 20px;
+  border-radius: 12px;
+}
+.stat {
+  display: inline-block;
+  margin: 10px 20px 10px 0;
 }
 input, select {
   display: block;
   margin-bottom: 8px;
   padding: 6px;
   width: 100%;
+  border-radius: 6px;
+  border: none;
 }
 </style>
 </head>
 <body>
 
-<h1>Simple Bet Tracker</h1>
+<header>Top Daily Tips</header>
 
-<button onclick="showValue()">Value Bets</button>
-<button onclick="showHistory()">History</button>
-<button onclick="addBet()">Add Bet</button>
+<nav>
+  <button class="secondary" onclick="showDashboard()">Dashboard</button>
+  <button class="secondary" onclick="showValue()">Value Bets</button>
+  <button class="secondary" onclick="showHistory()">History</button>
+  <button class="primary" onclick="addBet()">Add Bet (Admin)</button>
+</nav>
 
 <div id="content"></div>
 
 <script>
 let bets = [];
-let tab = "value";
+let tab = "dashboard";
 
 function edge(prob, odds) {
   if (!prob || !odds) return 0;
@@ -53,23 +77,18 @@ function profit(odds, stake, result) {
   return 0;
 }
 
-function showValue() {
-  tab = "value";
-  render();
-}
-
-function showHistory() {
-  tab = "history";
-  render();
-}
+function showDashboard() { tab = "dashboard"; render(); }
+function showValue() { tab = "value"; render(); }
+function showHistory() { tab = "history"; render(); }
 
 function addBet() {
   bets.push({
     id: Date.now(),
     match: "Team A vs Team B",
-    odds: 2,
+    market: "Over 2.5",
+    odds: 2.0,
     probability: 50,
-    stake: 1,
+    stake: 100,
     result: "pending"
   });
   render();
@@ -84,33 +103,60 @@ function render() {
   const content = document.getElementById("content");
   content.innerHTML = "";
 
-  let filtered = tab === "value"
-    ? bets.filter(b => b.result === "pending")
-    : bets.filter(b => b.result !== "pending");
+  if (tab === "dashboard") {
+    let totalBets = bets.filter(b => b.result !== "pending").length;
+    let wins = bets.filter(b => b.result === "win").length;
+    let losses = bets.filter(b => b.result === "loss").length;
+    let totalStaked = bets.reduce((a,b)=>a+b.stake,0);
+    let totalProfit = bets.reduce((a,b)=>a+profit(b.odds,b.stake,b.result),0);
+    let roi = totalStaked ? (totalProfit/totalStaked*100).toFixed(2) : 0;
+    let winRate = totalBets ? (wins/totalBets*100).toFixed(2) : 0;
 
-  filtered.forEach(bet => {
-    const div = document.createElement("div");
-    div.className = "card";
-
-    div.innerHTML = `
-      <input value="${bet.match}" onchange="updateBet(${bet.id}, 'match', this.value)" />
-      <input type="number" value="${bet.odds}" onchange="updateBet(${bet.id}, 'odds', parseFloat(this.value))" />
-      <input type="number" value="${bet.probability}" onchange="updateBet(${bet.id}, 'probability', parseFloat(this.value))" />
-      <input type="number" value="${bet.stake}" onchange="updateBet(${bet.id}, 'stake', parseFloat(this.value))" />
-      <p>Edge: ${edge(bet.probability, bet.odds).toFixed(2)}%</p>
-      <select onchange="updateBet(${bet.id}, 'result', this.value)">
-        <option value="pending" ${bet.result==="pending"?"selected":""}>Pending</option>
-        <option value="win" ${bet.result==="win"?"selected":""}>Win</option>
-        <option value="loss" ${bet.result==="loss"?"selected":""}>Loss</option>
-      </select>
-      ${bet.result !== "pending" ? 
-        `<p>Profit: ${profit(bet.odds, bet.stake, bet.result).toFixed(2)} units</p>` 
-        : ""
-      }
+    content.innerHTML = `
+      <div class="card">
+        <div class="stat">Total Bets: ${totalBets}</div>
+        <div class="stat">Win Rate: ${winRate}%</div>
+        <div class="stat">Total Profit: £${totalProfit.toFixed(2)}</div>
+        <div class="stat">ROI: ${roi}%</div>
+      </div>
     `;
+  }
 
-    content.appendChild(div);
-  });
+  if (tab === "value") {
+    bets.filter(b => b.result==="pending").forEach(bet => {
+      const div = document.createElement("div");
+      div.className = "card";
+      div.innerHTML = `
+        <h3>${bet.match}</h3>
+        <p>${bet.market}</p>
+        <input value="${bet.odds}" type="number" onchange="updateBet(${bet.id},'odds',parseFloat(this.value))">
+        <input value="${bet.probability}" type="number" onchange="updateBet(${bet.id},'probability',parseFloat(this.value))">
+        <input value="${bet.stake}" type="number" onchange="updateBet(${bet.id},'stake',parseFloat(this.value))">
+        <p>Edge: ${edge(bet.probability,bet.odds).toFixed(2)}%</p>
+        <p>Potential Profit: £${((bet.odds-1)*bet.stake).toFixed(2)}</p>
+        <select onchange="updateBet(${bet.id},'result',this.value)">
+          <option value="pending">Pending</option>
+          <option value="win">Win</option>
+          <option value="loss">Loss</option>
+        </select>
+      `;
+      content.appendChild(div);
+    });
+  }
+
+  if (tab === "history") {
+    bets.filter(b => b.result!=="pending").forEach(bet => {
+      const div = document.createElement("div");
+      div.className = "card";
+      div.innerHTML = `
+        <h3>${bet.match}</h3>
+        <p>${bet.market}</p>
+        <p>Result: ${bet.result.toUpperCase()}</p>
+        <p>Profit: £${profit(bet.odds,bet.stake,bet.result).toFixed(2)}</p>
+      `;
+      content.appendChild(div);
+    });
+  }
 }
 
 render();
