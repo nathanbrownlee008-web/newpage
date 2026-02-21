@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>Simple Bet Tracker</title>
+<style>
+body {
+  font-family: Arial;
+  background: #0f172a;
+  color: white;
+  padding: 20px;
+}
+.card {
+  background: #1e293b;
+  padding: 15px;
+  margin-bottom: 15px;
+  border-radius: 12px;
+}
+button {
+  padding: 8px 12px;
+  margin: 5px 5px 5px 0;
+}
+input, select {
+  display: block;
+  margin-bottom: 8px;
+  padding: 6px;
+  width: 100%;
+}
+</style>
+</head>
+<body>
+
+<h1>Simple Bet Tracker</h1>
+
+<button onclick="showValue()">Value Bets</button>
+<button onclick="showHistory()">History</button>
+<button onclick="addBet()">Add Bet</button>
+
+<div id="content"></div>
+
+<script>
+let bets = [];
+let tab = "value";
+
+function edge(prob, odds) {
+  if (!prob || !odds) return 0;
+  return (prob/100 * odds - 1) * 100;
+}
+
+function profit(odds, stake, result) {
+  if (result === "win") return (odds - 1) * stake;
+  if (result === "loss") return -stake;
+  return 0;
+}
+
+function showValue() {
+  tab = "value";
+  render();
+}
+
+function showHistory() {
+  tab = "history";
+  render();
+}
+
+function addBet() {
+  bets.push({
+    id: Date.now(),
+    match: "Team A vs Team B",
+    odds: 2,
+    probability: 50,
+    stake: 1,
+    result: "pending"
+  });
+  render();
+}
+
+function updateBet(id, field, value) {
+  bets = bets.map(b => b.id === id ? {...b, [field]: value} : b);
+  render();
+}
+
+function render() {
+  const content = document.getElementById("content");
+  content.innerHTML = "";
+
+  let filtered = tab === "value"
+    ? bets.filter(b => b.result === "pending")
+    : bets.filter(b => b.result !== "pending");
+
+  filtered.forEach(bet => {
+    const div = document.createElement("div");
+    div.className = "card";
+
+    div.innerHTML = `
+      <input value="${bet.match}" onchange="updateBet(${bet.id}, 'match', this.value)" />
+      <input type="number" value="${bet.odds}" onchange="updateBet(${bet.id}, 'odds', parseFloat(this.value))" />
+      <input type="number" value="${bet.probability}" onchange="updateBet(${bet.id}, 'probability', parseFloat(this.value))" />
+      <input type="number" value="${bet.stake}" onchange="updateBet(${bet.id}, 'stake', parseFloat(this.value))" />
+      <p>Edge: ${edge(bet.probability, bet.odds).toFixed(2)}%</p>
+      <select onchange="updateBet(${bet.id}, 'result', this.value)">
+        <option value="pending" ${bet.result==="pending"?"selected":""}>Pending</option>
+        <option value="win" ${bet.result==="win"?"selected":""}>Win</option>
+        <option value="loss" ${bet.result==="loss"?"selected":""}>Loss</option>
+      </select>
+      ${bet.result !== "pending" ? 
+        `<p>Profit: ${profit(bet.odds, bet.stake, bet.result).toFixed(2)} units</p>` 
+        : ""
+      }
+    `;
+
+    content.appendChild(div);
+  });
+}
+
+render();
+</script>
+
+</body>
+</html>
