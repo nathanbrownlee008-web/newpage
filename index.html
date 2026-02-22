@@ -2,22 +2,25 @@
 <html>
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Top Daily Tips</title>
+
+<link rel="manifest" href="manifest.json">
 
 <style>
 body{
   margin:0;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;
   background:#0b1220;
   color:white;
 }
 
 header{
-  padding:20px;
-  font-size:22px;
+  padding:18px;
+  font-size:20px;
   font-weight:600;
   border-bottom:1px solid #1f2a44;
+  text-align:center;
 }
 
 nav{
@@ -31,18 +34,12 @@ nav button{
   background:none;
   border:none;
   color:white;
-  font-size:14px;
-}
-
-.container{
-  padding:15px;
-}
-
-table{
-  width:100%;
-  border-collapse:collapse;
   font-size:13px;
 }
+
+.container{ padding:15px; }
+
+table{ width:100%; border-collapse:collapse; font-size:13px; }
 
 th, td{
   padding:8px;
@@ -50,18 +47,12 @@ th, td{
   text-align:left;
 }
 
-th{
-  font-weight:600;
-  opacity:0.7;
-}
+th{ opacity:0.7; }
 
-tr.win{
-  border-left:4px solid #10b981;
-}
+tr.win{ border-left:4px solid #10b981; }
+tr.loss{ border-left:4px solid #ef4444; }
 
-tr.loss{
-  border-left:4px solid #ef4444;
-}
+tr{ transition:0.3s ease; }
 
 input, select{
   background:#121a2b;
@@ -69,6 +60,11 @@ input, select{
   color:white;
   padding:5px;
   font-size:12px;
+}
+
+button.small{
+  font-size:11px;
+  padding:4px 6px;
 }
 
 .stat-box{
@@ -80,10 +76,13 @@ input, select{
 
 canvas{
   width:100%;
-  height:200px;
+  height:220px;
   background:#121a2b;
   border-radius:8px;
 }
+
+.green{ color:#10b981; }
+.red{ color:#ef4444; }
 </style>
 </head>
 
@@ -104,18 +103,22 @@ canvas{
 
 <script>
 
+if('serviceWorker' in navigator){
+  navigator.serviceWorker.register('sw.js');
+}
+
 let bets = JSON.parse(localStorage.getItem("bets")) || [];
 let startingBankroll = parseFloat(localStorage.getItem("bankroll")) || 1000;
+let adminPassword = localStorage.getItem("adminPass") || "admin123";
 let tab="value";
 
 function save(){
   localStorage.setItem("bets", JSON.stringify(bets));
   localStorage.setItem("bankroll", startingBankroll);
+  localStorage.setItem("adminPass", adminPassword);
 }
 
-function today(){
-  return new Date().toISOString().split("T")[0];
-}
+function today(){ return new Date().toISOString().split("T")[0]; }
 
 function profit(o,s,r){
   if(r==="win") return (o-1)*s;
@@ -123,23 +126,16 @@ function profit(o,s,r){
   return 0;
 }
 
-function setTab(t){
-  tab=t;
-  render();
-}
+function setTab(t){ tab=t; render(); }
 
 function adminLogin(){
   const pass = prompt("Enter admin password:");
-  if(pass==="admin123"){
-    tab="admin";
-    render();
-  }else{
-    alert("Wrong password");
-  }
+  if(pass===adminPassword){ tab="admin"; render(); }
+  else alert("Wrong password");
 }
 
 function addBet(){
-  bets.push({
+  bets.unshift({
     id:Date.now(),
     date:today(),
     match:"",
@@ -158,28 +154,12 @@ function update(id, field, value){
   render();
 }
 
-function uploadCSV(e){
-  const file=e.target.files[0];
-  const reader=new FileReader();
-  reader.onload=function(ev){
-    ev.target.result.split("\n").forEach(line=>{
-      const [match,market,odds,stake]=line.split(",");
-      if(match){
-        bets.push({
-          id:Date.now()+Math.random(),
-          date:today(),
-          match:match.trim(),
-          market:market.trim(),
-          odds:parseFloat(odds)||0,
-          stake:parseFloat(stake)||0,
-          result:"pending"
-        });
-      }
-    });
+function removeBet(id){
+  if(confirm("Delete bet?")){
+    bets=bets.filter(b=>b.id!==id);
     save();
-    setTab("value");
-  };
-  reader.readAsText(file);
+    render();
+  }
 }
 
 function render(){
@@ -196,12 +176,16 @@ if(tab==="value"){
     <th>Odds</th>
     <th>Stake</th>
     <th>Status</th>
-  </tr>
-  `;
+    <th></th>
+  </tr>`;
 
-  bets.filter(b=>b.date===today()).forEach(b=>{
+  bets.filter(b=>b.date===today())
+      .sort((a,b)=>b.id-a.id)
+      .forEach(b=>{
+
     const row=document.createElement("tr");
-    row.className = b.result==="win"?"win":b.result==="loss"?"loss":"";
+    row.className=b.result==="win"?"win":b.result==="loss"?"loss":"";
+
     row.innerHTML=`
       <td><input value="${b.match}" onchange="update(${b.id},'match',this.value)"></td>
       <td><input type="number" value="${b.odds}" onchange="update(${b.id},'odds',parseFloat(this.value)||0)"></td>
@@ -213,6 +197,7 @@ if(tab==="value"){
           <option value="loss">❌</option>
         </select>
       </td>
+      <td><button class="small" onclick="removeBet(${b.id})">🗑</button></td>
     `;
     table.appendChild(row);
   });
@@ -223,21 +208,19 @@ if(tab==="value"){
 if(tab==="history"){
   const table=document.createElement("table");
   table.innerHTML=`
-  <tr>
-    <th>Match</th>
-    <th>Result</th>
-    <th>Profit</th>
-  </tr>
-  `;
+  <tr><th>Match</th><th>Result</th><th>Profit</th></tr>`;
 
-  bets.filter(b=>b.result!=="pending").forEach(b=>{
+  bets.filter(b=>b.result!=="pending")
+      .sort((a,b)=>b.id-a.id)
+      .forEach(b=>{
+
     const p=profit(b.odds,b.stake,b.result);
     const row=document.createElement("tr");
     row.className=b.result;
     row.innerHTML=`
       <td>${b.match}</td>
       <td>${b.result==="win"?"✅":"❌"}</td>
-      <td>£${p.toFixed(2)}</td>
+      <td class="${p>=0?'green':'red'}">£${p.toFixed(2)}</td>
     `;
     table.appendChild(row);
   });
@@ -246,9 +229,11 @@ if(tab==="history"){
 }
 
 if(tab==="pl"){
+
+  const totalProfit=bets.reduce((a,b)=>a+profit(b.odds,b.stake,b.result),0);
+
   const stat=document.createElement("div");
   stat.className="stat-box";
-  const totalProfit=bets.reduce((a,b)=>a+profit(b.odds,b.stake,b.result),0);
   stat.innerHTML=`
     Starting Bankroll (£):
     <input type="number" value="${startingBankroll}" onchange="startingBankroll=parseFloat(this.value)||0; save(); render();">
@@ -262,7 +247,7 @@ if(tab==="pl"){
 
   const ctx=canvas.getContext("2d");
   canvas.width=window.innerWidth-30;
-  canvas.height=200;
+  canvas.height=220;
 
   let history=bets.filter(b=>b.result!=="pending");
   let bankroll=startingBankroll;
@@ -276,6 +261,15 @@ if(tab==="pl"){
   let max=Math.max(...points);
   let min=Math.min(...points);
   let range=max-min||1;
+
+  ctx.strokeStyle="#2a3a5e";
+  ctx.beginPath();
+  for(let i=0;i<5;i++){
+    let y=i*(canvas.height/4);
+    ctx.moveTo(0,y);
+    ctx.lineTo(canvas.width,y);
+  }
+  ctx.stroke();
 
   ctx.strokeStyle="#10b981";
   ctx.beginPath();
@@ -295,8 +289,8 @@ if(tab==="admin"){
     <div class="stat-box">
       <button onclick="addBet()">➕ Add Bet</button>
       <br><br>
-      CSV Upload (Match,Market,Odds,Stake)
-      <input type="file" accept=".csv" onchange="uploadCSV(event)">
+      Change Admin Password:
+      <input type="text" value="${adminPassword}" onchange="adminPassword=this.value; save();">
     </div>
   `;
 }
@@ -304,7 +298,6 @@ if(tab==="admin"){
 }
 
 render();
-
 </script>
 
 </body>
