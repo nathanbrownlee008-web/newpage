@@ -2,26 +2,88 @@
 <html>
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
 <title>Top Daily Tips</title>
 
 <style>
-body { margin:0; font-family: Arial, sans-serif; background:#0b1220; color:white; }
-header { padding:25px; font-size:28px; font-weight:600; border-bottom:1px solid #1f2a44; }
-nav { padding:15px 25px; border-bottom:1px solid #1f2a44; }
-button { padding:10px 16px; margin-right:10px; border:none; border-radius:10px; cursor:pointer; }
-.primary { background:#10b981; color:black; }
-.secondary { background:#1e293b; color:white; }
-.container { padding:25px; }
-.grid { display:grid; grid-template-columns: repeat(auto-fit, minmax(320px,1fr)); gap:25px; }
-.card { background:#121a2b; padding:20px; border-radius:14px; border:1px solid #1f2a44; transition:0.2s ease; }
-.card.win { border:1px solid rgba(16,185,129,0.8); box-shadow:0 0 10px rgba(16,185,129,0.4); }
-.card.loss { border:1px solid rgba(239,68,68,0.8); box-shadow:0 0 10px rgba(239,68,68,0.4); }
-input, select { width:100%; padding:8px; margin-bottom:10px; border-radius:8px; border:1px solid #2a3a5e; background:#0f172a; color:white; }
-.stat-box { background:#121a2b; padding:15px; border-radius:12px; border:1px solid #1f2a44; margin-bottom:20px; }
-canvas { background:#121a2b; border-radius:12px; border:1px solid #1f2a44; }
-.green { color:#10b981; }
-.red { color:#ef4444; }
+body{
+  margin:0;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  background:#0b1220;
+  color:white;
+}
+
+header{
+  padding:20px;
+  font-size:22px;
+  font-weight:600;
+  border-bottom:1px solid #1f2a44;
+}
+
+nav{
+  display:flex;
+  justify-content:space-around;
+  border-bottom:1px solid #1f2a44;
+  padding:10px 0;
+}
+
+nav button{
+  background:none;
+  border:none;
+  color:white;
+  font-size:14px;
+}
+
+.container{
+  padding:15px;
+}
+
+table{
+  width:100%;
+  border-collapse:collapse;
+  font-size:13px;
+}
+
+th, td{
+  padding:8px;
+  border-bottom:1px solid #1f2a44;
+  text-align:left;
+}
+
+th{
+  font-weight:600;
+  opacity:0.7;
+}
+
+tr.win{
+  border-left:4px solid #10b981;
+}
+
+tr.loss{
+  border-left:4px solid #ef4444;
+}
+
+input, select{
+  background:#121a2b;
+  border:1px solid #2a3a5e;
+  color:white;
+  padding:5px;
+  font-size:12px;
+}
+
+.stat-box{
+  background:#121a2b;
+  padding:12px;
+  margin-bottom:15px;
+  border-radius:8px;
+}
+
+canvas{
+  width:100%;
+  height:200px;
+  background:#121a2b;
+  border-radius:8px;
+}
 </style>
 </head>
 
@@ -30,10 +92,10 @@ canvas { background:#121a2b; border-radius:12px; border:1px solid #1f2a44; }
 <header>Top Daily Tips</header>
 
 <nav>
-  <button class="secondary" onclick="setTab('value')">Value Bets</button>
-  <button class="secondary" onclick="setTab('history')">History</button>
-  <button class="secondary" onclick="setTab('pl')">Profit & Loss</button>
-  <button class="primary" onclick="setTab('admin')">Admin</button>
+  <button onclick="setTab('value')">💎 Value</button>
+  <button onclick="setTab('history')">📜 History</button>
+  <button onclick="setTab('pl')">📈 P/L</button>
+  <button onclick="adminLogin()">🔒 Admin</button>
 </nav>
 
 <div class="container">
@@ -42,115 +104,187 @@ canvas { background:#121a2b; border-radius:12px; border:1px solid #1f2a44; }
 
 <script>
 
-let bets = [];
-let tab = "value";
-let startingBankroll = 1000;
+let bets = JSON.parse(localStorage.getItem("bets")) || [];
+let startingBankroll = parseFloat(localStorage.getItem("bankroll")) || 1000;
+let tab="value";
 
-function todayDate(){ return new Date().toISOString().split("T")[0]; }
-function edge(prob, odds){ if(!prob || !odds) return 0; return (prob/100 * odds - 1) * 100; }
-function profit(odds, stake, result){ if(result==="win") return (odds-1)*stake; if(result==="loss") return -stake; return 0; }
-function setTab(t){ tab=t; render(); }
+function save(){
+  localStorage.setItem("bets", JSON.stringify(bets));
+  localStorage.setItem("bankroll", startingBankroll);
+}
+
+function today(){
+  return new Date().toISOString().split("T")[0];
+}
+
+function profit(o,s,r){
+  if(r==="win") return (o-1)*s;
+  if(r==="loss") return -s;
+  return 0;
+}
+
+function setTab(t){
+  tab=t;
+  render();
+}
+
+function adminLogin(){
+  const pass = prompt("Enter admin password:");
+  if(pass==="admin123"){
+    tab="admin";
+    render();
+  }else{
+    alert("Wrong password");
+  }
+}
 
 function addBet(){
   bets.push({
     id:Date.now(),
-    createdDate: todayDate(),
+    date:today(),
     match:"",
     market:"",
     odds:2,
-    probability:50,
     stake:100,
     result:"pending"
   });
+  save();
   setTab("value");
 }
 
-function updateBet(id, field, value){
-  bets = bets.map(b => b.id===id ? {...b,[field]:value} : b);
+function update(id, field, value){
+  bets=bets.map(b=>b.id===id?{...b,[field]:value}:b);
+  save();
   render();
 }
 
+function uploadCSV(e){
+  const file=e.target.files[0];
+  const reader=new FileReader();
+  reader.onload=function(ev){
+    ev.target.result.split("\n").forEach(line=>{
+      const [match,market,odds,stake]=line.split(",");
+      if(match){
+        bets.push({
+          id:Date.now()+Math.random(),
+          date:today(),
+          match:match.trim(),
+          market:market.trim(),
+          odds:parseFloat(odds)||0,
+          stake:parseFloat(stake)||0,
+          result:"pending"
+        });
+      }
+    });
+    save();
+    setTab("value");
+  };
+  reader.readAsText(file);
+}
+
 function render(){
+
 const content=document.getElementById("content");
 content.innerHTML="";
 
 if(tab==="value"){
-  const grid=document.createElement("div");
-  grid.className="grid";
 
-  bets.filter(b=>b.createdDate===todayDate()).forEach(bet=>{
-    const e=edge(bet.probability,bet.odds);
-    const potential=(bet.odds-1)*bet.stake;
-    const div=document.createElement("div");
-    div.className="card " + (bet.result==="win"?"win":bet.result==="loss"?"loss":"");
-    div.innerHTML=`
-      <input placeholder="Match" value="${bet.match}" onchange="updateBet(${bet.id},'match',this.value)">
-      <input placeholder="Market" value="${bet.market}" onchange="updateBet(${bet.id},'market',this.value)">
-      <input type="number" placeholder="Odds" value="${bet.odds}" onchange="updateBet(${bet.id},'odds',parseFloat(this.value)||0)">
-      <input type="number" placeholder="Probability %" value="${bet.probability}" onchange="updateBet(${bet.id},'probability',parseFloat(this.value)||0)">
-      <input type="number" placeholder="Stake (£)" value="${bet.stake}" onchange="updateBet(${bet.id},'stake',parseFloat(this.value)||0)">
-      <div>Edge: <strong>${e.toFixed(2)}%</strong></div>
-      <div>Potential Profit: £${isNaN(potential)?0:potential.toFixed(2)}</div>
-      <select onchange="updateBet(${bet.id},'result',this.value)">
-        <option value="pending">Pending</option>
-        <option value="win">Win</option>
-        <option value="loss">Loss</option>
-      </select>
+  const table=document.createElement("table");
+  table.innerHTML=`
+  <tr>
+    <th>Match</th>
+    <th>Odds</th>
+    <th>Stake</th>
+    <th>Status</th>
+  </tr>
+  `;
+
+  bets.filter(b=>b.date===today()).forEach(b=>{
+    const row=document.createElement("tr");
+    row.className = b.result==="win"?"win":b.result==="loss"?"loss":"";
+    row.innerHTML=`
+      <td><input value="${b.match}" onchange="update(${b.id},'match',this.value)"></td>
+      <td><input type="number" value="${b.odds}" onchange="update(${b.id},'odds',parseFloat(this.value)||0)"></td>
+      <td><input type="number" value="${b.stake}" onchange="update(${b.id},'stake',parseFloat(this.value)||0)"></td>
+      <td>
+        <select onchange="update(${b.id},'result',this.value)">
+          <option value="pending">⏳</option>
+          <option value="win">✅</option>
+          <option value="loss">❌</option>
+        </select>
+      </td>
     `;
-    grid.appendChild(div);
+    table.appendChild(row);
   });
-  content.appendChild(grid);
+
+  content.appendChild(table);
 }
 
 if(tab==="history"){
-  const grid=document.createElement("div");
-  grid.className="grid";
-  bets.filter(b=>b.result!=="pending").forEach(bet=>{
-    const p=profit(bet.odds,bet.stake,bet.result);
-    const div=document.createElement("div");
-    div.className="card " + (bet.result==="win"?"win":"loss");
-    div.innerHTML=`
-      <h3>${bet.match}</h3>
-      <div>${bet.market}</div>
-      <div>Stake: £${bet.stake}</div>
-      <div>Result: ${bet.result.toUpperCase()}</div>
-      <div class="${p>=0?'green':'red'}">Profit: £${p.toFixed(2)}</div>
+  const table=document.createElement("table");
+  table.innerHTML=`
+  <tr>
+    <th>Match</th>
+    <th>Result</th>
+    <th>Profit</th>
+  </tr>
+  `;
+
+  bets.filter(b=>b.result!=="pending").forEach(b=>{
+    const p=profit(b.odds,b.stake,b.result);
+    const row=document.createElement("tr");
+    row.className=b.result;
+    row.innerHTML=`
+      <td>${b.match}</td>
+      <td>${b.result==="win"?"✅":"❌"}</td>
+      <td>£${p.toFixed(2)}</td>
     `;
-    grid.appendChild(div);
+    table.appendChild(row);
   });
-  content.appendChild(grid);
+
+  content.appendChild(table);
 }
 
 if(tab==="pl"){
-  let bankroll = startingBankroll;
-  let history = bets.filter(b=>b.result!=="pending");
   const stat=document.createElement("div");
   stat.className="stat-box";
+  const totalProfit=bets.reduce((a,b)=>a+profit(b.odds,b.stake,b.result),0);
   stat.innerHTML=`
     Starting Bankroll (£):
-    <input type="number" value="${startingBankroll}" onchange="startingBankroll=parseFloat(this.value)||0; render();">
+    <input type="number" value="${startingBankroll}" onchange="startingBankroll=parseFloat(this.value)||0; save(); render();">
     <br><br>
-    Current Bankroll: <strong>£${(startingBankroll + history.reduce((a,b)=>a+profit(b.odds,b.stake,b.result),0)).toFixed(2)}</strong>
+    Current Bankroll: £${(startingBankroll+totalProfit).toFixed(2)}
   `;
   content.appendChild(stat);
 
   const canvas=document.createElement("canvas");
-  canvas.width=600;
-  canvas.height=300;
   content.appendChild(canvas);
 
   const ctx=canvas.getContext("2d");
+  canvas.width=window.innerWidth-30;
+  canvas.height=200;
+
+  let history=bets.filter(b=>b.result!=="pending");
+  let bankroll=startingBankroll;
+  let points=[bankroll];
+
+  history.forEach(b=>{
+    bankroll+=profit(b.odds,b.stake,b.result);
+    points.push(bankroll);
+  });
+
+  let max=Math.max(...points);
+  let min=Math.min(...points);
+  let range=max-min||1;
+
   ctx.strokeStyle="#10b981";
   ctx.beginPath();
 
-  let x=0;
-  let step= canvas.width / (history.length+1);
-  ctx.moveTo(0, canvas.height - bankroll/10);
-
-  history.forEach(b=>{
-    bankroll += profit(b.odds,b.stake,b.result);
-    x += step;
-    ctx.lineTo(x, canvas.height - bankroll/10);
+  points.forEach((val,i)=>{
+    const x=(canvas.width/(points.length-1))*i;
+    const y=canvas.height-((val-min)/range)*canvas.height;
+    if(i===0) ctx.moveTo(x,y);
+    else ctx.lineTo(x,y);
   });
 
   ctx.stroke();
@@ -159,7 +293,10 @@ if(tab==="pl"){
 if(tab==="admin"){
   content.innerHTML=`
     <div class="stat-box">
-      <button class="primary" onclick="addBet()">Add New Bet</button>
+      <button onclick="addBet()">➕ Add Bet</button>
+      <br><br>
+      CSV Upload (Match,Market,Odds,Stake)
+      <input type="file" accept=".csv" onchange="uploadCSV(event)">
     </div>
   `;
 }
